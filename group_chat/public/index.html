@@ -1,0 +1,59 @@
+<!-- index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Send Message</title>
+</head>
+<body>
+    <form id="send-message-form">
+        <label for="message">Message:</label>
+        <input type="text" id="message" name="message"> <!-- Make sure the ID is "message" -->
+        <button type="submit">Send</button>
+    </form>
+    <div id="messages"></div>
+
+    <script>
+        // Fetch and display messages
+        function fetchAndDisplayMessages() {
+            fetch('/messages')
+                .then(response => response.json())
+                .then(data => {
+                    const messagesDiv = document.getElementById('messages');
+                    messagesDiv.innerHTML = ''; // Clear previous messages
+                    data.messages.forEach(message => {
+                        const p = document.createElement('p');
+                        p.textContent = message;
+                        messagesDiv.appendChild(p);
+                    });
+                });
+        }
+
+        // Send message
+        // Send message
+        document.getElementById('send-message-form').addEventListener('submit', function(event) {
+    console.log("Form submitted"); // Check if the form submission event is triggered
+    event.preventDefault();
+    const message = document.getElementById('message').value; // Get the value of the message input field
+    console.log("Message:", message);// Log the message to check if it's captured correctly
+    fetch('/send-message', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ message: message }) // Send message as JSON
+    })
+    .then(response => response.text())
+    .then(data => {
+        console.log(data);
+        document.getElementById('message').value = ''; // Clear input field
+        fetchAndDisplayMessages(); // Refresh messages after sending
+    });
+});
+
+        // Initial fetch and display messages
+        fetchAndDisplayMessages();
+    </script>
+</body>
+</html>
