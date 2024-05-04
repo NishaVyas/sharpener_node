@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Schedule Meeting</title>
+    <style>
+        .timing-box {
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin-bottom: 20px;
+            width: fit-content;
+            margin-right: 20px;
+            display: inline-block;
+            cursor: pointer;
+            text-align: center;
+        }
+
+        .timing {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .available {
+            color: green;
+        }
+
+        .selected {
+            background-color: lightblue;
+        }
+
+        .popup {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: #f9f9f9;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            z-index: 9999;
+        }
+
+        .popup h2 {
+            margin-top: 0;
+            margin-bottom: 20px;
+        }
+
+        .popup input {
+            display: block;
+            width: calc(100% - 20px);
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+        }
+
+        .popup button {
+            display: block;
+            width: calc(100% - 20px);
+            padding: 10px;
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            font-size: 20px;
+            color: #555;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .meeting {
+            margin-top: 20px;
+        }
+
+        .meeting-box {
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin-bottom: 20px;
+            width: 300px;
+            /* Adjust width as needed */
+            height: 150px;
+            /* Adjust height as needed */
+            overflow: auto;
+            /* Add overflow for long content */
+            word-wrap: break-word;
+            /* Allow long content to wrap */
+            display: inline-block;
+            /* Display as inline-block to arrange horizontally */
+            margin-right: 10px;
+            /* Add margin between meeting boxes */
+        }
+
+        .meeting-info {
+            margin-top: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Schedule Meeting</h1>
+
+    <div id="timingBoxes"></div>
+
+    <div id="popup" class="popup">
+        <button class="close-btn">&times;</button>
+        <h2>Book Meeting</h2>
+        <form id="bookingForm">
+            <input type="text" id="name" placeholder="Your Name">
+            <input type="email" id="email" placeholder="Your Email">
+            <button type="submit">Book</button>
+        </form>
+    </div>
+
+    <div id="message"></div>
+
+    <h2>Scheduled Meetings</h2>
+
+    <div id="scheduledMeetings" class="meeting"></div>
+
+    <script>
+        const timingBoxesDiv = document.getElementById('timingBoxes');
+        const popup = document.getElementById('popup');
+        const closeBtn = document.querySelector('.close-btn');
+        const bookingForm = document.getElementById('bookingForm');
+        const nameInput = document.getElementById('name');
+        const emailInput = document.getElementById('email');
+        const messageDiv = document.getElementById('message');
+        const scheduledMeetingsDiv = document.getElementById('scheduledMeetings');
+        let selectedTiming;
+        let meetings = JSON.parse(localStorage.getItem('meetings')) || [];
+        let availableSeats = {
+            '2:00 PM': 4,
+            '3:00 PM': 4,
+            '4:00 PM': 4,
+            '5:00 PM': 4
+        };
+
+        const timingData = ['2:00 PM', '3:00 PM', '4:00 PM', '5:00 PM'];
+
+        function renderTimingBoxes() {
+            timingData.forEach(timing => {
+                const timingBox = document.createElement('div');
+                timingBox.classList.add('timing-box');
+                timingBox.dataset.timing = timing;
+                timingBox.innerHTML = `<div class="timing">${timing}</div><div class="available">${availableSeats[timing]} available</div>`;
+                timingBox.addEventListener('click', () => {
+                    selectedTiming = timing;
+                    openPopup();
+                });
+                timingBoxesDiv.appendChild(timingBox);
+            });
+        }
+
+        function updateAvailableSeats(timing) {
+            const timingBox = document.querySelector(`.timing-box[data-timing="${timing}"]`);
+            if (timingBox) {
+                timingBox.querySelector('.available').textContent = `${availableSeats[timing]} available`;
+            }
+        }
+
+        function openPopup() {
+            popup.style.display = 'block';
+            nameInput.value = '';
+            emailInput.value = '';
+        }
+
+        function closePopup() {
+            popup.style.display = 'none';
+        }
+
+        closeBtn.addEventListener('click', closePopup);
+
+        bookingForm.addEventListener('submit', async function (event) {
+            event.preventDefault();
+
+            const name = nameInput.value;
+            const email = emailInput.value;
+
+            // Check if there's already a meeting booked with the same email at the same time
+            const existingMeeting = meetings.find(meeting => meeting.timing === selectedTiming && meeting.email === email);
+            if (existingMeeting) {
+                messageDiv.innerText = 'You have already booked a meeting at this time with the same email.';
+                return;
+            }
+
+            const meeting = {
+                timing: selectedTiming,
+                name,
+                email,
+                meetingLink: generateMeetingLink(selectedTiming, name, email)
+            };
+
+            meetings.push(meeting);
+
+            availableSeats[selectedTiming]--;
+            localStorage.setItem('meetings', JSON.stringify(meetings));
+            localStorage.setItem('availableSeats', JSON.stringify(availableSeats));
+
+            renderScheduledMeetings();
+            updateAvailableSeats(selectedTiming);
+
+            closePopup();
+
+            messageDiv.innerText = 'Meeting booked successfully.';
+        });
+        function generateMeetingLink(timing, name, email) {
+            // Generate a unique meeting link based on timing, name, and email
+            return `https://example.com/meeting?timing=${encodeURIComponent(timing)}`;
+        }
+
+        function renderScheduledMeetings() {
+            scheduledMeetingsDiv.innerHTML = '';
+            meetings.forEach((meeting, index) => {
+                const meetingBox = document.createElement('div');
+                meetingBox.classList.add('meeting-box');
+                const time = meeting.timing;
+                const nameLine = document.createElement('p');
+                nameLine.innerHTML = `Hi ${meeting.name}`;
+                const meetingLine = document.createElement('p');
+                meetingLine.innerHTML = `Join the meeting by <a href="${meeting.meetingLink}" target="_blank">${meeting.meetingLink}</a> at ${time}.`;
+                const cancelButton = document.createElement('button');
+                cancelButton.textContent = 'Cancel';
+                cancelButton.addEventListener('click', () => cancelMeeting(index));
+                meetingBox.appendChild(nameLine);
+                meetingBox.appendChild(meetingLine);
+                meetingBox.appendChild(cancelButton);
+                scheduledMeetingsDiv.appendChild(meetingBox);
+            });
+        }
+        function cancelMeeting(index) {
+            const canceledMeeting = meetings[index];
+            const timing = canceledMeeting.timing;
+            availableSeats[timing]++;
+            meetings.splice(index, 1);
+            localStorage.setItem('meetings', JSON.stringify(meetings));
+            localStorage.setItem('availableSeats', JSON.stringify(availableSeats));
+            renderScheduledMeetings();
+            updateAvailableSeats(timing);
+        }
+
+
+        renderTimingBoxes();
+        renderScheduledMeetings();
+    </script>
+</body>
+
+</html>
